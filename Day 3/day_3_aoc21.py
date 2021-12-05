@@ -18,9 +18,8 @@ def unpack_puzzle_input(dir_file: str) -> list:
     return data
 
 
-def measure_power_from_gamma_and_epsilon(arr: list):
+def measure_power_from_gamma_and_epsilon(arr: list) -> tuple[int, int, int]:
     """
-
     Args:
         arr: list of string formatted binary values
 
@@ -45,9 +44,8 @@ def measure_power_from_gamma_and_epsilon(arr: list):
     return gamma, epsilon, power
 
 
-def measure_life_support_from_o2_and_co2(arr: list):
+def measure_life_support_from_o2_and_co2(arr: list) -> tuple[int, int, int]:
     """
-
     Args:
         arr: list of string formatted binary values
 
