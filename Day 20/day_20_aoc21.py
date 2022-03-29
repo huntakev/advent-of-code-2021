@@ -1,6 +1,6 @@
 SAMPLE_INPUT_FILE = "sample_input_day_20_aoc21.txt"
 PUZZLE_INPUT_FILE = "puzzle_input_day_20_aoc21.txt"
-NUM_ENHANCEMENTS = 3
+NUM_ENHANCEMENTS = 50
 
 
 def parse_input(dir_file: str) -> tuple[str, list]:
@@ -60,7 +60,8 @@ def surrounding_pixels_binary_value(arr: list, x: int, y: int) -> str:
         if 0 <= x_i < len(arr) and 0 <= y_i < len(arr[x]):
             pixel_binary_value += str(arr[x_i][y_i])
         else:
-            pixel_binary_value += "0"
+            # if position isn't valid, use value of x, y coordinate
+            pixel_binary_value += str(arr[x][y])
 
     return pixel_binary_value
 
@@ -95,17 +96,20 @@ algorithm = convert_algorithm_to_bool(algorithm)
 image = convert_image_to_bool(image)
 image = create_canvas(image, NUM_ENHANCEMENTS)
 
-
+'''
 for i in image:
     print(i)
 print()
-
+'''
 
 for i in range(NUM_ENHANCEMENTS):
     image = enhance_image(algorithm, image)
-
+    '''
     for j in image:
         print(j)
+    
     print()
     print(count_light_pixels(image))
     print()
+'''
+print(count_light_pixels(image))
