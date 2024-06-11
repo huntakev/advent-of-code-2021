@@ -86,7 +86,14 @@ class Line:
         """Initialize Line."""
         self.characters = characters
 
-    def find_first_illegal_character(self) -> Character | None:
+    def calculate_syntax_score(self) -> int | None:
+        """Calculate syntax score for line."""
+        illegal_character = self._find_first_illegal_character()
+        if illegal_character:
+            return illegal_character.error_score
+        return 0
+
+    def _find_first_illegal_character(self) -> Character | None:
         """Find first illegal ChunkType character in line."""
         expected_characters = []
         for character in self.characters:
@@ -111,7 +118,7 @@ class Line:
 
     def _find_autocomplete_characters(self) -> list[Character] | None:
         """Find characters required to autocomplete line."""
-        if self.find_first_illegal_character() is None:
+        if self._find_first_illegal_character() is None:
             expected_characters = []
             for character in self.characters:
                 if character.is_open_character:
@@ -136,9 +143,7 @@ class NavigationSubsystem:
         """Calculate syntax score."""
         syntax_score = 0
         for line in self.lines:
-            illegal_character = line.find_first_illegal_character()
-            if illegal_character:
-                syntax_score += illegal_character.error_score
+            syntax_score += line.calculate_syntax_score()
         return syntax_score
 
     def calculate_autocomplete_score(self) -> int:
