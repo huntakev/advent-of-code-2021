@@ -1,104 +1,163 @@
-SAMPLE_INPUT_FILE = "sample_input_day_10_aoc21.txt"
-PUZZLE_INPUT_FILE = "puzzle_input_day_10_aoc21.txt"
+from pathlib import Path
+
+SAMPLE_DATA_PATH = Path(r"sample_input_day_10_aoc21.txt")
+PUZZLE_DATA_PATH = Path(r"puzzle_input_day_10_aoc21.txt")
+
+NavigationData = list[str]
 
 
-def input_file_puzzle_input(dir_file: str) -> list:
-    """
-    Args:
-        dir_file (str): location of .txt file to pull data from
-
-    Returns:
-        end points values in [[x1, y1], [x2, y2]] format for lines defined in input file
-    """
-
-    with open(dir_file, "r") as file:
-        content = file.read().splitlines()
-
-        return content
+def load_navigation_data(path: Path) -> NavigationData:
+    """Load input data from specified path."""
+    with open(path) as f:
+        return f.read().splitlines()
 
 
-def calc(i):
-    # chunks = {'(': 0, '[': 0, '{': 0, '<': 0, ')': 0, ']': 0, '}': 0, '>': 0}
-    open = ['(', '[', '{', '<']
-    close = [')', ']', '}', '>']
+class Character:
+    """Navigation subsystem character."""
 
-    expected = ''
-    for ch in i:
-        if ch in open:
-            expected = convert_open_to_close(ch) + expected
-        elif ch == expected[0]:
-            expected = expected[1:]
-        else:
-            return det_score(ch)
-    return 0
+    PERMITTED_CHARACTERS = ["(", ")", "[", "]", "{", "}", "<", ">"]
 
-def calc3(i):
-    # chunks = {'(': 0, '[': 0, '{': 0, '<': 0, ')': 0, ']': 0, '}': 0, '>': 0}
-    open = ['(', '[', '{', '<']
-    close = [')', ']', '}', '>']
-    expected = ''
-    for ch in i:
-        if ch in open:
-            expected = convert_open_to_close(ch) + expected
-        elif ch == expected[0]:
-            if len(expected) <= 1:
-                expected = ''
+    def __init__(self, value: str) -> None:
+        if value not in Character.PERMITTED_CHARACTERS:
+            raise ValueError(f"value '{value}' invalid - expected value in {Character.PERMITTED_CHARACTERS}")
+        self.value = value
+
+    @property
+    def opposite_character(self) -> str:
+        """Return opposite character."""
+        match self.value:
+            case "(":
+                return ")"
+            case ")":
+                return "("
+            case "[":
+                return "]"
+            case "]":
+                return "["
+            case "{":
+                return "}"
+            case "}":
+                return "{"
+            case "<":
+                return ">"
+            case ">":
+                return "<"
+
+    @property
+    def error_score(self) -> int:
+        """Return error score of character."""
+        match self.value:
+            case ")":
+                return 3
+            case "]":
+                return 57
+            case "}":
+                return 1197
+            case ">":
+                return 25137
+            case _:
+                raise ValueError("invalid character for scoring")
+
+    @property
+    def autocomplete_score(self) -> int:
+        """Return error score of character."""
+        match self.value:
+            case ")":
+                return 1
+            case "]":
+                return 2
+            case "}":
+                return 3
+            case ">":
+                return 4
+            case _:
+                raise ValueError("invalid character for scoring")
+
+    @property
+    def is_open_character(self) -> bool:
+        """Return whether character is an open character."""
+        return self.value in ["(", "[", "{", "<"]
+
+
+class Line:
+    """Navigational subsystem line"""
+
+    def __init__(self, characters: list[Character]) -> None:
+        """Initialize Line."""
+        self.characters = characters
+
+    def find_first_illegal_character(self) -> Character | None:
+        """Find first illegal ChunkType character in line."""
+        expected_characters = []
+        for character in self.characters:
+            if character.is_open_character:
+                expected_characters.append(character)
             else:
-                expected = expected[1:]
-    print(i, expected)
-    return det_auto_score(expected)
+                if character.opposite_character == expected_characters[-1].value:
+                    expected_characters.pop(-1)
+                else:
+                    return character
+        return None
 
-def convert_open_to_close(a):
+    def calculate_autocomplete_score(self) -> int | None:
+        """Calculate score of line autocomplete characters."""
+        if autocomplete_characters := self._find_autocomplete_characters():
+            score = 0
+            for character in autocomplete_characters:
+                score *= 5
+                score += character.autocomplete_score
+            return score
+        return None
 
-    if a == '(':
-        return ')'
-    if a == '[':
-        return ']'
-    if a == '{':
-        return '}'
-    if a == '<':
-        return '>'
+    def _find_autocomplete_characters(self) -> list[Character] | None:
+        """Find characters required to autocomplete line."""
+        if self.find_first_illegal_character() is None:
+            expected_characters = []
+            for character in self.characters:
+                if character.is_open_character:
+                    expected_characters.append(character)
+                else:
+                    if character.opposite_character == expected_characters[-1].value:
+                        expected_characters.pop(-1)
+            if expected_characters:
+                return [Character(character.opposite_character) for character in reversed(expected_characters)]
+        return None
 
-    return False
 
-def det_score(a):
-    if a == ')':
-        return 3
-    if a == ']':
-        return 57
-    if a == '}':
-        return 1197
-    if a == '>':
-        return 25137
+class NavigationSubsystem:
+    """Navigation Subsystem."""
 
-    return 0
+    def __init__(self, navigation_data: NavigationData) -> None:
+        self.lines = []
+        for row in navigation_data:
+            self.lines.append(Line([Character(value) for value in row]))
 
-def det_auto_score(a):
-    score = 0
-    for b in a:
-        if b == ')':
-            score = score * 5 + 1
-        if b == ']':
-            score = score * 5 + 2
-        if b ==' }':
-            score = score * 5 + 3
-        if b == '>':
-            score = score * 5 + 4
-    return score
+    def calculate_syntax_score(self) -> int:
+        """Calculate syntax score."""
+        syntax_score = 0
+        for line in self.lines:
+            illegal_character = line.find_first_illegal_character()
+            if illegal_character:
+                syntax_score += illegal_character.error_score
+        return syntax_score
 
-def calc2(arr):
-    score = []
-    for item in arr:
-        output = calc3(item)
-        if output:
-            score.append(output)
-    print(sorted(score))
-    return sorted(score)[int(len(score)/2)]
+    def calculate_autocomplete_score(self) -> int:
+        """Calculate autocomplete score."""
+        autocomplete_scores = []
+        for line in self.lines:
+            if line_score := line.calculate_autocomplete_score():
+                autocomplete_scores.append(line_score)
+        autocomplete_scores.sort()
+        return autocomplete_scores[round((len(autocomplete_scores) - 1) / 2)]
 
-sample_input = input_file_puzzle_input(SAMPLE_INPUT_FILE)
-# puzzle_input = input_file_puzzle_input(PUZZLE_INPUT_FILE)
-sample_output = calc2(sample_input)
-# puzzle_output = calc2(puzzle_input)
 
-print(sample_output)
-# print(puzzle_output)
+def main() -> None:
+    navigation_data = load_navigation_data(PUZZLE_DATA_PATH)
+    navigation_subsystem = NavigationSubsystem(navigation_data)
+    syntax_score = navigation_subsystem.calculate_syntax_score()
+    autocomplete_score = navigation_subsystem.calculate_autocomplete_score()
+    print(f"{syntax_score=} {autocomplete_score=}")
+
+
+if __name__ == "__main__":
+    main()
