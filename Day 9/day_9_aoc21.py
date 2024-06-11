@@ -1,156 +1,110 @@
-SAMPLE_INPUT_FILE = "sample_input_day_9_aoc21.txt"
-PUZZLE_INPUT_FILE = "puzzle_input_day_9_aoc21.txt"
+from dataclasses import dataclass
+from pathlib import Path
+
+SAMPLE_DATA_PATH = Path(r"sample_input_day_9_aoc21.txt")
+PUZZLE_DATA_PATH = Path(r"puzzle_input_day_9_aoc21.txt")
+
+Position = tuple[int, int]
+Elevation = int
+HeightMap = dict[Position, Elevation]
 
 
-def input_file_to_heightmap(dir_file: str) -> list:
-    """
-    Args:
-        dir_file (str): location of .txt file to pull data from
-
-    Returns:
-        list of lists in which each [row][col] value is the height at that position in the heightmap
-    """
-
-    with open(dir_file, "r") as file:
-        content = file.read().splitlines()
-        hm = []
-        for index in range(len(content)):
-            hm.append([])
-            for num in content[index]:
-                hm[index].append(int(num))
-        return hm
+def load_height_map(path: Path) -> HeightMap:
+    """Load input data from specified path."""
+    with open(path) as f:
+        data = []
+        rows = f.read().splitlines()
+        for row in rows:
+            data.append([int(num) for num in row])
+        height_map: HeightMap = {}
+        for row_index, row_value in enumerate(data):
+            for column_index, column_value in enumerate(row_value):
+                position: Position = (row_index, column_index)
+                elevation: Elevation = column_value
+                height_map[position] = elevation
+        return height_map
 
 
-def sum_risk_level_of_low_points(hm: list) -> int:
-    count = 0
-    for row in range(len(hm)):
-        for col in range(len(hm[row])):
-            if check_for_lower_adj_height(hm, row, col):
-                count += hm[row][col] + 1
-    return count
+@dataclass
+class Node:
+    """LavaCave Node."""
+
+    position: Position
+    elevation: Elevation
 
 
-def check_for_lower_adj_height(arr, index_row, index_col) -> bool:
-    """
-    Args:
-        arr: heightmap array
-        index_row: row index of location to check adjacent locations for lower or equally low height
-        index_col: column index of location to check adjacent locations for lower or equally low height
-    Returns:
-        True if check location is lower than all adjacent locations, else False
-    """
+class LavaCave:
+    """LavaCave."""
 
-    if index_row >= 1:
-        if arr[index_row][index_col] >= arr[index_row-1][index_col]:
-            return False
+    def __init__(self, height_map: HeightMap) -> None:
+        """Initialize LavaCave."""
+        self.height_map = height_map
+        self.x_length = max([value[0] for value in self.height_map.keys()]) + 1
+        self.y_length = max([value[1] for value in self.height_map.keys()]) + 1
 
-    if index_row < len(arr) - 1:
-        if arr[index_row][index_col] >= arr[index_row+1][index_col]:
-            return False
+    def measure_risk_level(self) -> int:
+        """Measure risk level of LavaCave."""
+        risk_level = 0
+        low_nodes = self._get_low_nodes()
+        for low_node in low_nodes:
+            risk_level += low_node.elevation + 1
+        return risk_level
 
-    if index_col >= 1:
-        if arr[index_row][index_col] >= arr[index_row][index_col-1]:
-            return False
+    def measure_basin_size(self) -> int:
+        """Measure basin size of LavaCave."""
+        basin_sizes = []
+        low_nodes = self._get_low_nodes()
+        for low_node in low_nodes:
+            basin_sizes.append(self._recursive_basin_measurement(low_node))
+        basin_sizes.sort(reverse=True)
+        return basin_sizes[0] * basin_sizes[1] * basin_sizes[2]
 
-    if index_col < len(arr[index_row]) - 1:
-        if arr[index_row][index_col] >= arr[index_row][index_col+1]:
-            return False
+    def _get_low_nodes(self) -> list[Node]:
+        """Get list of nodes representing low points."""
+        low_nodes: list[Node] = []
+        for node in [Node(position, elevation) for position, elevation in self.height_map.items()]:
+            neighbour_nodes = self._get_neighbour_nodes(node)
+            if node not in low_nodes and self._is_low_node(node, neighbour_nodes):
+                low_nodes.append(node)
+        return low_nodes
 
-    return True
+    def _get_neighbour_nodes(self, node: Node) -> list[Node]:
+        """Get neighbour nodes surrounding input node."""
+        neighbour_nodes: list[Node] = []
+        relative_positions = [[-1, 0], [1, 0], [0, -1], [0, 1]]
+        for relative_position in relative_positions:
+            position: Position = (node.position[0] + relative_position[0], node.position[1] + relative_position[1])
+            if -1 < position[0] < self.x_length:
+                if -1 < position[1] < self.y_length:
+                    neighbour_nodes.append(Node(position, self.height_map[position]))
+        return neighbour_nodes
 
+    def _recursive_basin_measurement(
+            self, node: Node, measured_nodes: list[Node] | None = None, basin_size: int = 0
+    ) -> int:
+        """Recursively measure basin size starting at specified node."""
+        if measured_nodes is None:
+            measured_nodes = []
+        if node.elevation != 9 and node not in measured_nodes:
+            measured_nodes.append(node)
+            basin_size += 1
+            for neighbour_node in self._get_neighbour_nodes(node):
+                basin_size = self._recursive_basin_measurement(neighbour_node, measured_nodes, basin_size)
+        return basin_size
 
-def find_low_points(hm: list) -> list:
-    lp = []
-    for row in range(len(hm)):
-        for col in range(len(hm[row])):
-            if check_for_lower_adj_height(hm, row, col):
-                lp.append([row, col])
-    return lp
-
-
-def group_basins(hm: list) -> list:
-    basins = [[[0, 0]]] if hm[0][0] != 9 else [[]]
-
-    for row in range(len(hm)):
-        for col in range(len(hm[row])):
-
-            if hm[row][col] == 9:
-                continue
-
-            for basin in basins:
-                try:
-                    if [row, col] not in basin and [row - 1, col - 1] in basin and \
-                            not(9 == hm[row-1][col] == hm[row][col-1]):
-                        basin.append([row, col])
-                        continue
-                except Exception:
-                    pass
-
-                try:
-                    if [row, col] not in basin and [row - 1, col] in basin:
-                        basin.append([row, col])
-                        continue
-                except Exception:
-                    pass
-
-                try:
-                    if [row, col] not in basin and [row - 1, col + 1] in basin and \
-                            not(9 == hm[row-1][col] == hm[row][col+1]):
-                        basin.append([row, col])
-                        continue
-                except Exception:
-                    pass
-
-                try:
-                    if [row, col] not in basin and [row, col - 1] in basin:
-                        basin.append([row, col])
-                        continue
-                except Exception:
-                    pass
-
-                try:
-                    if [row, col] not in basin and [row, col + 1] in basin:
-                        basin.append([row, col])
-                        continue
-                except Exception:
-                    pass
-
-                try:
-                    if [row, col] not in basin and [row + 1, col - 1] in basin and \
-                            not(9 == hm[row+1][col] == hm[row][col-1]):
-                        basin.append([row, col])
-                        continue
-                except Exception:
-                    pass
-
-                try:
-                    if [row, col] not in basin and [row + 1, col] in basin:
-                        basin.append([row, col])
-                        continue
-                except Exception:
-                    pass
-
-                try:
-                    if [row, col] not in basin and [row + 1, col + 1] in basin and \
-                            not(9 == hm[row+1][col] == hm[row][col+1]):
-                        basin.append([row, col])
-                        continue
-                except Exception:
-                    pass
-
-            if [row, col] not in [indices for basin in basins for indices in basin]:
-                basins.append([[row, col]])
-                continue
-
-    return basins
+    @staticmethod
+    def _is_low_node(node: Node, neighbour_nodes: list[Node]) -> bool:
+        """Return whether specified node is lowest among specified neighbour nodes."""
+        return not any(node.elevation >= neighbour.elevation for neighbour in neighbour_nodes)
 
 
-def multiply_sizes_of_largest_basins(b: list) -> int:
-    b_sorted = sorted(b, key=len, reverse=True)
-    return len(b_sorted[0]) * len(b_sorted[1]) * len(b_sorted[2])
+def main():
+    height_map = load_height_map(PUZZLE_DATA_PATH)
+    lava_cave = LavaCave(height_map)
+    risk_level = lava_cave.measure_risk_level()
+    basin_size = lava_cave.measure_basin_size()
+    print(f"{risk_level=} {basin_size=}")
 
 
-puzzle_input = input_file_to_heightmap(SAMPLE_INPUT_FILE)
-basins = group_basins(puzzle_input)
-score = multiply_sizes_of_largest_basins(basins)
-print(score)
+if __name__ == "__main__":
+    main()
